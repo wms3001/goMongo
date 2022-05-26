@@ -1,4 +1,4 @@
-module github.com/golang/goMongo
+module github.com/wms3001/goMongo
 
 go 1.18
 
