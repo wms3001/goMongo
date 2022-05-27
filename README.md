@@ -2,7 +2,7 @@
 
 ### 1. install
 ```go
-go get github.com/wms3001/goMongo
+go get github.com/wms3001/goMongo@v1.0.3
 ```
 ### 2.Add folder in project directory and add mongo.yml file
 ```yml
