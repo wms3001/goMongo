@@ -3,273 +3,267 @@ package goMongo
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/spf13/viper"
-	"github.com/wms3001/goMongo/model"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"golang.org/x/net/context"
-	"os"
 	"strconv"
 )
 
-var mData *model.MData
+type GoMongo struct {
+	Addr     string
+	Port     string
+	Password string
+	User     string
+	Pass     string
+	Db       string
+	Client   *mongo.Client
+	Collect  *mongo.Collection
+}
 
-//func  OpenConn(coll string) (*mongo.Client,*mongo.Collection) {
-func OpenConn(coll string) *model.Conn {
-	var conn = &model.Conn{}
-	work, _ := os.Getwd()
-	viper.SetConfigName("mongo")
-	viper.SetConfigType("yml")
-	viper.AddConfigPath(work + "/conf")
-	viper.ReadInConfig()
-	mHost := viper.GetString("mongo.host")
-	mPort := viper.GetString("mongo.port")
-	mUser := viper.GetString("mongo.user")
-	mPass := viper.GetString("mongo.pass")
-	mDb := viper.GetString("mongo.dbName")
-	// 设置客户端选项
-	clientOptions := options.Client().ApplyURI("mongodb://" + mUser + ":" + mPass + "@" + mHost + ":" + mPort + "/" + mDb)
-	// 连接 MongoDB
+func (goMongo *GoMongo) Connect() *Resp {
+	var resp = &Resp{}
+	clientOptions := options.Client().ApplyURI("mongodb://" + goMongo.User + ":" + goMongo.Pass + "@" + goMongo.Addr +
+		":" + goMongo.Port + "/" + goMongo.Db)
 	client, err := mongo.Connect(context.TODO(), clientOptions)
 	if err != nil {
-		conn.Code = -1
-		conn.Message = err.Error()
-		return conn
-	}
-	// 检查连接
-	err = client.Ping(context.TODO(), nil)
-	if err != nil {
-		conn.Code = -1
-		conn.Message = err.Error()
-		return conn
-	}
-	collection := client.Database(mDb).Collection(coll)
-	//o.Client = client
-	conn.Code = 1
-	conn.Message = "success"
-	conn.Client = client
-	conn.Collection = collection
-	return conn
-}
-
-func SetCollection(client *mongo.Client, database string, collection string) *mongo.Collection {
-	return client.Database(database).Collection(collection)
-}
-
-func CloseConn(client *mongo.Client) *model.Base {
-	var base = &model.Base{}
-	base.Code = 1
-	base.Message = "关闭成功"
-	err := client.Disconnect(context.TODO())
-	if err != nil {
-		base.Code = -1
-		base.Message = err.Error()
-	}
-	return base
-}
-
-func AddOne(collection *mongo.Collection, data interface{}) *model.AddOne {
-	var addOne = &model.AddOne{}
-	re, err := collection.InsertOne(context.TODO(), data)
-	if err != nil {
-		addOne.Code = -1
-		addOne.Message = "添加失败"
+		resp.Code = -1
+		resp.Message = err.Error()
 	} else {
-		addOne.Code = 1
-		addOne.Message = "添加成功"
-		addOne.InsertId = Strval(re.InsertedID)
+		resp.Code = 1
+		resp.Message = "connected"
+		goMongo.Client = client
 	}
-	return addOne
+	return resp
 }
 
-func AddMany(collection *mongo.Collection, data []interface{}) *model.AddMany {
-	var addMany = &model.AddMany{}
-	re, err := collection.InsertMany(context.TODO(), data)
+func (goMongo *GoMongo) Ping() *Resp {
+	var resp = &Resp{}
+	err := goMongo.Client.Ping(context.TODO(), nil)
 	if err != nil {
-		addMany.Code = -1
-		addMany.Message = "添加失败"
+		resp.Code = -1
+		resp.Message = err.Error()
 	} else {
-		addMany.Code = 1
-		addMany.Message = "添加成功"
-		//var insertIds []string
-		for _, d := range re.InsertedIDs {
-			addMany.InsertIds = append(addMany.InsertIds, Strval(d))
-		}
+		resp.Code = 1
+		resp.Message = "connected"
 	}
-	return addMany
+	return resp
 }
 
-func GetOneSingl(collection *mongo.Collection, data interface{}) *model.GetOne {
-	var getOne = &model.GetOne{}
+func (goMongo *GoMongo) SetCollection(coll string) *Resp {
+	var resp = &Resp{}
+	collection := goMongo.Client.Database(goMongo.Db).Collection(coll)
+	if collection != nil {
+		resp.Code = 1
+		resp.Message = "success"
+		goMongo.Collect = collection
+	} else {
+		resp.Code = -1
+		resp.Message = "connect error"
+	}
+	return resp
+}
+
+func (goMongo *GoMongo) CloseConn() *Resp {
+	var resp = &Resp{}
+	resp.Code = 1
+	resp.Message = "关闭成功"
+	err := goMongo.Client.Disconnect(context.TODO())
+	if err != nil {
+		resp.Code = -1
+		resp.Message = err.Error()
+	}
+	return resp
+}
+
+func (goMongo *GoMongo) AddOne(data interface{}) *Resp {
+	var resp = &Resp{}
+	re, err := goMongo.Collect.InsertOne(context.TODO(), data)
+	if err != nil {
+		resp.Code = -1
+		resp.Message = "添加失败"
+	} else {
+		resp.Code = 1
+		resp.Message = "添加成功"
+		resp.Data = Strval(re.InsertedID)
+	}
+	return resp
+}
+
+func (goMongo *GoMongo) AddMany(data []interface{}) *Resp {
+	var resp = &Resp{}
+	re, err := goMongo.Collect.InsertMany(context.TODO(), data)
+	if err != nil {
+		resp.Code = -1
+		resp.Message = "添加失败"
+	} else {
+		resp.Code = 1
+		resp.Message = "添加成功"
+		resp.Data = re.InsertedIDs
+	}
+	return resp
+}
+
+func (goMongo *GoMongo) GetOne(data *Filter) *Resp {
+	var resp = &Resp{}
 	var result bson.M
-	err := collection.FindOne(context.TODO(), data).Decode(&result)
+	condition := param(data)
+	err := goMongo.Collect.FindOne(context.TODO(), condition).Decode(&result)
 	if err != nil {
-		getOne.Code = -1
-		getOne.Message = err.Error()
+		resp.Code = -1
+		resp.Message = err.Error()
 	} else {
-		getOne.Code = 1
-		getOne.Message = "查询成功"
-		getOne.Data = result
+		resp.Code = 1
+		resp.Message = "查询成功"
+		resp.Data = result
 	}
-	return getOne
+	return resp
 }
 
-func GetOne(collection *mongo.Collection, data *model.MData) *model.GetOne {
-	var getOne = &model.GetOne{}
-	var result bson.M
-	filter, _, _, _, _ := param(data)
-	err := collection.FindOne(context.TODO(), filter).Decode(&result)
-	if err != nil {
-		getOne.Code = -1
-		getOne.Message = err.Error()
-	} else {
-		getOne.Code = 1
-		getOne.Message = "查询成功"
-		getOne.Data = result
-	}
-	return getOne
-}
-
-func GetMany(collection *mongo.Collection, data *model.MData) *model.GetMany {
-	var getMany = &model.GetMany{}
+func (goMongo *GoMongo) GetMany(data *Filter, option *Option) *Resp {
+	var resp = &Resp{}
 	var result []bson.M
-	filter, _, sort, limit, skip := param(data)
+	condition := param(data)
 	findOptions := options.Find()
-	findOptions.SetLimit(limit)
-	findOptions.SetSkip(skip)
-	findOptions.SetSort(sort)
+	findOptions.SetLimit(option.Limit)
+	findOptions.SetSkip(option.Skip)
+	findOptions.SetSort(option.SMap)
 	fmt.Println(data)
-	cur, err := collection.Find(context.TODO(), filter, findOptions)
+	cur, err := goMongo.Collect.Find(context.TODO(), condition, findOptions)
 	if err != nil {
-		getMany.Code = -1
-		getMany.Message = err.Error()
+		resp.Code = -1
+		resp.Message = err.Error()
 	} else {
 		for cur.Next(context.TODO()) {
 			var item bson.M
 			cur.Decode(&item)
 			result = append(result, item)
 		}
-		getMany.Code = 1
-		getMany.Message = "查询成功"
-		getMany.Data = result
+		resp.Code = 1
+		resp.Message = "查询成功"
+		resp.Data = result
 	}
-	return getMany
+	return resp
 }
 
-func UpdateOne(collection *mongo.Collection, data *model.MData) *model.UpdateOne {
-	var updateOne = &model.UpdateOne{}
-	filter, update, _, _, _ := param(data)
-	up, err := collection.UpdateOne(context.TODO(), filter, update)
+func (goMongo *GoMongo) UpdateOne(data *Filter, uData *UData) *Resp {
+	var resp = &Resp{}
+	condition := param(data)
+	updata := paramData(uData)
+	up, err := goMongo.Collect.UpdateOne(context.TODO(), condition, updata)
+	fmt.Println(up)
 	if err != nil {
-		updateOne.Code = -1
-		updateOne.Message = err.Error()
+		resp.Code = -1
+		resp.Message = err.Error()
 	} else {
-		updateOne.Code = 1
-		updateOne.Message = "更新成功"
-		updateOne.MatchedCount = up.MatchedCount
-		updateOne.ModifiedCount = up.ModifiedCount
+		resp.Code = 1
+		resp.Message = "更新成功"
+		resp.Data = up
 	}
-	return updateOne
+	return resp
 }
 
-func UpdateMany(collection *mongo.Collection, data *model.MData) *model.UpdateOne {
-	var updateOne = &model.UpdateOne{}
-	filter, update, _, _, _ := param(data)
-	up, err := collection.UpdateMany(context.TODO(), filter, update)
+func (goMongo *GoMongo) UpdateMany(data *Filter, uData *UData) *Resp {
+	var resp = &Resp{}
+	condition := param(data)
+	updata := paramData(uData)
+	up, err := goMongo.Collect.UpdateMany(context.TODO(), condition, updata)
+	fmt.Println(up)
 	if err != nil {
-		updateOne.Code = -1
-		updateOne.Message = err.Error()
+		resp.Code = -1
+		resp.Message = err.Error()
 	} else {
-		updateOne.Code = 1
-		updateOne.Message = "更新成功"
-		updateOne.MatchedCount = up.MatchedCount
-		updateOne.ModifiedCount = up.ModifiedCount
+		resp.Code = 1
+		resp.Message = "更新成功"
+		resp.Data = up
 	}
-	return updateOne
+	return resp
 }
 
-func DeleteOne(collection *mongo.Collection, data *model.MData) *model.DeleteOne {
-	var deleteOne = &model.DeleteOne{}
-	filter, _, _, _, _ := param(data)
-	del, err := collection.DeleteOne(context.TODO(), filter)
+func (goMongo *GoMongo) DeleteOne(data *Filter) *Resp {
+	var resp = &Resp{}
+	condition := param(data)
+	del, err := goMongo.Collect.DeleteOne(context.TODO(), condition)
 	if err != nil {
-		deleteOne.Code = -1
-		deleteOne.Message = err.Error()
+		resp.Code = -1
+		resp.Message = err.Error()
 	} else {
-		deleteOne.Code = 1
-		deleteOne.Message = "删除成功"
-		deleteOne.DeletedCount = del.DeletedCount
+		resp.Code = 1
+		resp.Message = "删除成功"
+		resp.Data = del.DeletedCount
 	}
-	return deleteOne
+	return resp
 }
 
-func DeleteMany(collection *mongo.Collection, data *model.MData) *model.DeleteOne {
-	var deleteMany = &model.DeleteOne{}
-	filter, _, _, _, _ := param(data)
-	del, err := collection.DeleteMany(context.TODO(), filter)
+func (goMongo *GoMongo) DeleteMany(data *Filter) *Resp {
+	var resp = &Resp{}
+	condition := param(data)
+	del, err := goMongo.Collect.DeleteMany(context.TODO(), condition)
 	if err != nil {
-		deleteMany.Code = -1
-		deleteMany.Message = err.Error()
+		resp.Code = -1
+		resp.Message = err.Error()
 	} else {
-		deleteMany.Code = 1
-		deleteMany.Message = "删除成功"
-		deleteMany.DeletedCount = del.DeletedCount
+		resp.Code = 1
+		resp.Message = "删除成功"
+		resp.Data = del.DeletedCount
 	}
-	return deleteMany
+	return resp
 }
 
-func Count(collection *mongo.Collection, data *model.MData) *model.MCount {
-	var mCount = &model.MCount{}
-	filter, _, _, _, _ := param(data)
-	count, err := collection.CountDocuments(context.TODO(), filter)
+func (goMongo *GoMongo) Count(data *Filter) *Resp {
+	var resp = &Resp{}
+	condition := param(data)
+	count, err := goMongo.Collect.CountDocuments(context.TODO(), condition)
 	if err != nil {
-		mCount.Code = -1
-		mCount.Message = err.Error()
+		resp.Code = -1
+		resp.Message = err.Error()
 	} else {
-		mCount.Code = 1
-		mCount.Message = "统计成功"
-		mCount.DocNum = count
+		resp.Code = 1
+		resp.Message = "统计成功"
+		resp.Data = count
 	}
-	return mCount
+	return resp
 }
 
-func Distinct(collection *mongo.Collection, data *model.MData, field string) *model.MDistinct {
-	var mDistinct = &model.MDistinct{}
-	filter, _, _, _, _ := param(data)
-	dis, err := collection.Distinct(context.TODO(), field, filter)
+func (goMongo *GoMongo) Distinct(data *Filter, field string) *Resp {
+	var resp = &Resp{}
+	condition := param(data)
+	dis, err := goMongo.Collect.Distinct(context.TODO(), field, condition)
 	if err != nil {
-		mDistinct.Code = -1
-		mDistinct.Message = err.Error()
+		resp.Code = -1
+		resp.Message = err.Error()
 	} else {
-		mDistinct.Code = 1
-		mDistinct.Message = "查询成功"
-		mDistinct.Mfilds = dis
+		resp.Code = 1
+		resp.Message = "查询成功"
+		resp.Data = dis
 	}
-	return mDistinct
+	return resp
 
 }
 
-func param(mData *model.MData) (map[string]interface{}, map[string]interface{}, map[string]interface{}, int64, int64) {
-	var filter, update, sort map[string]interface{}
+func param(condition *Filter) map[string]interface{} {
+	var filter map[string]interface{}
 	filter = make(map[string]interface{})
-	update = make(map[string]interface{})
-	sort = make(map[string]interface{})
-	switch mData.Type {
+	switch condition.Type {
 	case "and":
-		filter = mData.FilterMap
+		filter = condition.FMap
 	case "or":
 		var fil []bson.M = []bson.M{}
-		for index, item := range mData.FilterMap {
+		for index, item := range condition.FMap {
 			fil = append(fil, bson.M{index: item})
 		}
 		filter["$or"] = fil
 	default:
 
 	}
-	sort = mData.SortMap
-	update["$set"] = mData.UpMap
-	return filter, update, sort, mData.Limit, mData.Skip
+	return filter
+}
+
+func paramData(uData *UData) map[string]interface{} {
+	var updata map[string]interface{}
+	updata = make(map[string]interface{})
+	updata["$set"] = uData.UMap
+	return updata
 }
 
 // Strval 获取变量的字符串值
