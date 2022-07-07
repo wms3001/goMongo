@@ -4,6 +4,7 @@ go 1.18
 
 require (
 	github.com/google/uuid v1.3.0
+	github.com/wms3001/goCommon v1.0.0
 	go.mongodb.org/mongo-driver v1.9.1
 	golang.org/x/net v0.0.0-20220412020605-290c469a71a5
 )
@@ -16,6 +17,7 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/stretchr/testify v1.7.1 // indirect
 	github.com/tidwall/pretty v1.2.0 // indirect
+	github.com/wms3001/goTool v1.0.1 // indirect
 	github.com/xdg-go/pbkdf2 v1.0.0 // indirect
 	github.com/xdg-go/scram v1.0.2 // indirect
 	github.com/xdg-go/stringprep v1.0.2 // indirect

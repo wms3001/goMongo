@@ -3,6 +3,8 @@ package goMongo
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/wms3001/goCommon"
+	"github.com/wms3001/goTool"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -21,8 +23,8 @@ type GoMongo struct {
 	Collect  *mongo.Collection
 }
 
-func (goMongo *GoMongo) Connect() *Resp {
-	var resp = &Resp{}
+func (goMongo *GoMongo) Connect() *goCommon.Resp {
+	var resp = &goCommon.Resp{}
 	clientOptions := options.Client().ApplyURI("mongodb://" + goMongo.User + ":" + goMongo.Pass + "@" + goMongo.Addr +
 		":" + goMongo.Port + "/" + goMongo.Db)
 	client, err := mongo.Connect(context.TODO(), clientOptions)
@@ -37,8 +39,8 @@ func (goMongo *GoMongo) Connect() *Resp {
 	return resp
 }
 
-func (goMongo *GoMongo) Ping() *Resp {
-	var resp = &Resp{}
+func (goMongo *GoMongo) Ping() *goCommon.Resp {
+	var resp = &goCommon.Resp{}
 	err := goMongo.Client.Ping(context.TODO(), nil)
 	if err != nil {
 		resp.Code = -1
@@ -50,8 +52,8 @@ func (goMongo *GoMongo) Ping() *Resp {
 	return resp
 }
 
-func (goMongo *GoMongo) SetCollection(coll string) *Resp {
-	var resp = &Resp{}
+func (goMongo *GoMongo) SetCollection(coll string) *goCommon.Resp {
+	var resp = &goCommon.Resp{}
 	collection := goMongo.Client.Database(goMongo.Db).Collection(coll)
 	if collection != nil {
 		resp.Code = 1
@@ -64,8 +66,8 @@ func (goMongo *GoMongo) SetCollection(coll string) *Resp {
 	return resp
 }
 
-func (goMongo *GoMongo) CloseConn() *Resp {
-	var resp = &Resp{}
+func (goMongo *GoMongo) CloseConn() *goCommon.Resp {
+	var resp = &goCommon.Resp{}
 	resp.Code = 1
 	resp.Message = "关闭成功"
 	err := goMongo.Client.Disconnect(context.TODO())
@@ -76,8 +78,8 @@ func (goMongo *GoMongo) CloseConn() *Resp {
 	return resp
 }
 
-func (goMongo *GoMongo) AddOne(data interface{}) *Resp {
-	var resp = &Resp{}
+func (goMongo *GoMongo) AddOne(data interface{}) *goCommon.Resp {
+	var resp = &goCommon.Resp{}
 	re, err := goMongo.Collect.InsertOne(context.TODO(), data)
 	if err != nil {
 		resp.Code = -1
@@ -90,8 +92,8 @@ func (goMongo *GoMongo) AddOne(data interface{}) *Resp {
 	return resp
 }
 
-func (goMongo *GoMongo) AddMany(data []interface{}) *Resp {
-	var resp = &Resp{}
+func (goMongo *GoMongo) AddMany(data []interface{}) *goCommon.Resp {
+	var resp = &goCommon.Resp{}
 	re, err := goMongo.Collect.InsertMany(context.TODO(), data)
 	if err != nil {
 		resp.Code = -1
@@ -99,13 +101,14 @@ func (goMongo *GoMongo) AddMany(data []interface{}) *Resp {
 	} else {
 		resp.Code = 1
 		resp.Message = "添加成功"
-		resp.Data = re.InsertedIDs
+		bytes, _ := json.Marshal(re.InsertedIDs)
+		resp.Data = string(bytes)
 	}
 	return resp
 }
 
-func (goMongo *GoMongo) GetOne(data *Filter) *Resp {
-	var resp = &Resp{}
+func (goMongo *GoMongo) GetOne(data *Filter) *goCommon.Resp {
+	var resp = &goCommon.Resp{}
 	var result bson.M
 	condition := param(data)
 	err := goMongo.Collect.FindOne(context.TODO(), condition).Decode(&result)
@@ -115,13 +118,14 @@ func (goMongo *GoMongo) GetOne(data *Filter) *Resp {
 	} else {
 		resp.Code = 1
 		resp.Message = "查询成功"
-		resp.Data = result
+		bytes, _ := json.Marshal(result)
+		resp.Data = string(bytes)
 	}
 	return resp
 }
 
-func (goMongo *GoMongo) GetMany(data *Filter, option *Option) *Resp {
-	var resp = &Resp{}
+func (goMongo *GoMongo) GetMany(data *Filter, option *Option) *goCommon.Resp {
+	var resp = &goCommon.Resp{}
 	var result []bson.M
 	condition := param(data)
 	findOptions := options.Find()
@@ -141,13 +145,14 @@ func (goMongo *GoMongo) GetMany(data *Filter, option *Option) *Resp {
 		}
 		resp.Code = 1
 		resp.Message = "查询成功"
-		resp.Data = result
+		bytes, _ := json.Marshal(result)
+		resp.Data = string(bytes)
 	}
 	return resp
 }
 
-func (goMongo *GoMongo) UpdateOne(data *Filter, uData *UData) *Resp {
-	var resp = &Resp{}
+func (goMongo *GoMongo) UpdateOne(data *Filter, uData *UData) *goCommon.Resp {
+	var resp = &goCommon.Resp{}
 	condition := param(data)
 	updata := paramData(uData)
 	up, err := goMongo.Collect.UpdateOne(context.TODO(), condition, updata)
@@ -158,13 +163,14 @@ func (goMongo *GoMongo) UpdateOne(data *Filter, uData *UData) *Resp {
 	} else {
 		resp.Code = 1
 		resp.Message = "更新成功"
-		resp.Data = up
+		bytes, _ := json.Marshal(up)
+		resp.Data = string(bytes)
 	}
 	return resp
 }
 
-func (goMongo *GoMongo) UpdateMany(data *Filter, uData *UData) *Resp {
-	var resp = &Resp{}
+func (goMongo *GoMongo) UpdateMany(data *Filter, uData *UData) *goCommon.Resp {
+	var resp = &goCommon.Resp{}
 	condition := param(data)
 	updata := paramData(uData)
 	up, err := goMongo.Collect.UpdateMany(context.TODO(), condition, updata)
@@ -175,13 +181,14 @@ func (goMongo *GoMongo) UpdateMany(data *Filter, uData *UData) *Resp {
 	} else {
 		resp.Code = 1
 		resp.Message = "更新成功"
-		resp.Data = up
+		bytes, _ := json.Marshal(up)
+		resp.Data = string(bytes)
 	}
 	return resp
 }
 
-func (goMongo *GoMongo) DeleteOne(data *Filter) *Resp {
-	var resp = &Resp{}
+func (goMongo *GoMongo) DeleteOne(data *Filter) *goCommon.Resp {
+	var resp = &goCommon.Resp{}
 	condition := param(data)
 	del, err := goMongo.Collect.DeleteOne(context.TODO(), condition)
 	if err != nil {
@@ -190,13 +197,14 @@ func (goMongo *GoMongo) DeleteOne(data *Filter) *Resp {
 	} else {
 		resp.Code = 1
 		resp.Message = "删除成功"
-		resp.Data = del.DeletedCount
+		bytes, _ := json.Marshal(del)
+		resp.Data = string(bytes)
 	}
 	return resp
 }
 
-func (goMongo *GoMongo) DeleteMany(data *Filter) *Resp {
-	var resp = &Resp{}
+func (goMongo *GoMongo) DeleteMany(data *Filter) *goCommon.Resp {
+	var resp = &goCommon.Resp{}
 	condition := param(data)
 	del, err := goMongo.Collect.DeleteMany(context.TODO(), condition)
 	if err != nil {
@@ -205,13 +213,15 @@ func (goMongo *GoMongo) DeleteMany(data *Filter) *Resp {
 	} else {
 		resp.Code = 1
 		resp.Message = "删除成功"
-		resp.Data = del.DeletedCount
+		bytes, _ := json.Marshal(del)
+		resp.Data = string(bytes)
 	}
 	return resp
 }
 
-func (goMongo *GoMongo) Count(data *Filter) *Resp {
-	var resp = &Resp{}
+func (goMongo *GoMongo) Count(data *Filter) *goCommon.Resp {
+	var resp = &goCommon.Resp{}
+	var tool = goTool.GoTool{}
 	condition := param(data)
 	count, err := goMongo.Collect.CountDocuments(context.TODO(), condition)
 	if err != nil {
@@ -220,13 +230,13 @@ func (goMongo *GoMongo) Count(data *Filter) *Resp {
 	} else {
 		resp.Code = 1
 		resp.Message = "统计成功"
-		resp.Data = count
+		resp.Data = tool.Strval(count)
 	}
 	return resp
 }
 
-func (goMongo *GoMongo) Distinct(data *Filter, field string) *Resp {
-	var resp = &Resp{}
+func (goMongo *GoMongo) Distinct(data *Filter, field string) *goCommon.Resp {
+	var resp = &goCommon.Resp{}
 	condition := param(data)
 	dis, err := goMongo.Collect.Distinct(context.TODO(), field, condition)
 	if err != nil {
@@ -235,7 +245,8 @@ func (goMongo *GoMongo) Distinct(data *Filter, field string) *Resp {
 	} else {
 		resp.Code = 1
 		resp.Message = "查询成功"
-		resp.Data = dis
+		bytes, _ := json.Marshal(dis)
+		resp.Data = string(bytes)
 	}
 	return resp
 
