@@ -14,3 +14,13 @@ type Option struct {
 	Skip  int64                  `json:"skip" bson:"skip"`
 	SMap  map[string]interface{} `json:"sMap" bson:"sMap"`
 }
+
+type FU struct {
+	Filter Filter `json:"filter" bson:"filter"`
+	UData  UData  `json:"uData" bson:"uData"`
+}
+
+type FO struct {
+	Filter Filter `json:"filter" bson:"filter"`
+	Option Option `json:"option" bson:"option"`
+}
